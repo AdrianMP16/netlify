@@ -1,8 +1,8 @@
 const { createClient } = require('@supabase/supabase-js');
 
 // Estas variables de entorno las debes configurar en tu panel de Netlify
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_ANON_KEY; 
+const supabaseUrl = env.SUPABASE_URL;
+const supabaseKey = env.SUPABASE_ANON_KEY; 
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 exports.handler = async (event, context) => {
