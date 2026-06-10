@@ -1,87 +1,70 @@
-// netlify/functions/mensajes.js
+const { createClient } = require('@supabase/supabase-js');
 
-function respuesta(statusCode, data) {
-  return {
-    statusCode,
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(data)
-  };
-}
+// Estas variables de entorno las debes configurar en tu panel de Netlify
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_ANON_KEY; 
+const supabase = createClient(supabaseUrl, supabaseKey);
 
-function validarEmail(email) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-}
+exports.handler = async (event, context) => {
+    // Manejar la petición POST (Insertar nuevo mensaje)
+    if (event.httpMethod === 'POST') {
+        try {
+            const data = JSON.parse(event.body);
 
-exports.handler = async function(event, context) {
-  try {
-    if (event.httpMethod === "GET") {
-      const mensajesDemo = [
-        {
-          id: 1,
-          nombre: "Ana",
-          email: "ana@correo.com",
-          mensaje: "Hola, este es un mensaje de ejemplo.",
-          fecha: new Date().toISOString()
+            // Insertamos en Supabase. OJO: Mapeamos data.email a la columna 'correo'
+            const { data: insertedData, error } = await supabase
+                .from('mensajes')
+                .insert([
+                    { 
+                        nombre: data.nombre, 
+                        correo: data.email, 
+                        mensaje: data.mensaje 
+                    }
+                ])
+                .select(); // El .select() es para que devuelva el registro creado (con el ID y created_at)
+
+            if (error) throw error;
+
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ 
+                    message: "Mensaje guardado exitosamente en Supabase", 
+                    data: insertedData[0] 
+                })
+            };
+        } catch (error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
         }
-      ];
-
-      return respuesta(200, {
-        ok: true,
-        data: mensajesDemo
-      });
     }
 
-    if (event.httpMethod === "POST") {
-      const body = JSON.parse(event.body || "{}");
-      const { nombre, email, mensaje } = body;
+    // Manejar la petición GET (Cargar mensajes desde la base de datos)
+    if (event.httpMethod === 'GET') {
+        try {
+            const { data, error } = await supabase
+                .from('mensajes')
+                .select('*')
+                .order('created_at', { ascending: true }); // Trae los más antiguos primero para que prepend los acomode
+                
+            if (error) throw error;
 
-      if (!nombre || !email || !mensaje) {
-        return respuesta(400, {
-          ok: false,
-          error: "Nombre, email y mensaje son obligatorios."
-        });
-      }
-
-      if (!validarEmail(email)) {
-        return respuesta(400, {
-          ok: false,
-          error: "El email no tiene un formato válido."
-        });
-      }
-
-      if (mensaje.length < 10) {
-        return respuesta(400, {
-          ok: false,
-          error: "El mensaje debe tener al menos 10 caracteres."
-        });
-      }
-
-      const nuevoMensaje = {
-        id: Date.now(),
-        nombre,
-        email,
-        mensaje,
-        fecha: new Date().toISOString()
-      };
-
-      return respuesta(201, {
-        ok: true,
-        message: "Mensaje recibido correctamente.",
-        data: nuevoMensaje
-      });
+            return {
+                statusCode: 200,
+                body: JSON.stringify({ data: data })
+            };
+        } catch (error) {
+            return {
+                statusCode: 500,
+                body: JSON.stringify({ error: error.message })
+            };
+        }
     }
 
-    return respuesta(405, {
-      ok: false,
-      error: "Método no permitido. Usa GET o POST."
-    });
-  } catch (error) {
-    console.error(error);
-    return respuesta(500, {
-      ok: false,
-      error: "Error interno en la función."
-    });
-  }
+    // Si no es GET ni POST
+    return {
+        statusCode: 405,
+        body: JSON.stringify({ error: "Método no permitido" })
+    };
 };
