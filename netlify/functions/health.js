@@ -1,0 +1,15 @@
+// netlify/functions/health.js
+
+exports.handler = async function(event, context) {
+  return {
+    statusCode: 200,
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      ok: true,
+      message: "Backend funcionando desde Netlify Functions",
+      fecha: new Date().toISOString()
+    })
+  };
+};
